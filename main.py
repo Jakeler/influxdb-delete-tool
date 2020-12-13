@@ -20,7 +20,7 @@ def select_db(client: InfluxDBClient):
     db = prompt(HTML('Which <ansicyan>database</ansicyan> do you want to work on today?\n'), 
         completer=comp, complete_while_typing=True)
     if (db not in databases):
-        color_print(f'DB {db} does not exist, retry!', 'ansired')
+        color_print(f'DB "{db}" does not exist, try to remember! (or hit TAB)', 'ansired')
         return False
 
     client.switch_database(db)
@@ -77,13 +77,15 @@ while not okay:
         entries = (list(rs.get_points()))
         n = len(entries)
         if n < 1:
-            color_print('Error: query results in zero entries!', 'ansired')
+            color_print('That makes no sense man: query results in zero entries!', 'ansired')
+            continue
 
         fprint(HTML(f'Found <b>{n}</b> candidates for deletion:'))
         table_print(entries)
 
         okay = ask_confirm()
     except InfluxDBClientError as err:
+        color_print(f'Database computer says: ' + err.content, 'ansired')
         entries = []
         okay = False
 
