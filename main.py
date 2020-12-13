@@ -33,7 +33,7 @@ def select_db(client: InfluxDBClient):
     return True
 
 def select_msm(client: InfluxDBClient):
-    rs: ResultSet = dbc.query('SHOW measurements')
+    rs: ResultSet = client.query('SHOW measurements')
     msms = resp_list(list(rs.get_points()))
     found_print('measurements', msms)
 
@@ -44,10 +44,10 @@ def select_msm(client: InfluxDBClient):
 
 def get_condition_session(client: InfluxDBClient, msm: str):
     # TODO mode for mutli measurements
-    rs: ResultSet = dbc.query(f'SHOW TAG KEYS FROM {msm}')
+    rs: ResultSet = client.query(f'SHOW TAG KEYS FROM {msm}')
     tags = resp_list(list(rs.get_points()), 'tagKey')
     found_print('tags', tags)
-    rs: ResultSet = dbc.query(f'SHOW FIELD KEYS FROM {msm}')
+    rs: ResultSet = client.query(f'SHOW FIELD KEYS FROM {msm}')
     fields = resp_list(list(rs.get_points()), 'fieldKey')
     found_print('fields', fields)
 
@@ -67,37 +67,40 @@ def table_print(input: [dict]):
         fprint('  '.join(str(x) for x in line.values()))
     print()
 
-# TODO parse args for hostname, port, user, ask pass
-dbc = InfluxDBClient('homeserver')
+def run_main(host: str):
+    dbc = InfluxDBClient(host)
 
-db_selected = False
-while not db_selected:
-    db_selected = select_db(dbc)
-measurement = select_msm(dbc)
+    db_selected = False
+    while not db_selected:
+        db_selected = select_db(dbc)
+    measurement = select_msm(dbc)
 
-okay = False
-session = get_condition_session(dbc, measurement)
-while not okay:
-    cond = session.prompt()
+    okay = False
+    session = get_condition_session(dbc, measurement)
+    while not okay:
+        cond = session.prompt()
 
-    try:
-        rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
-        entries = (list(rs.get_points()))
-        n = len(entries)
-        if n < 1:
-            color_print('That makes no sense dude: query results in zero entries!', 'ansired')
+        try:
+            rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
+            entries = (list(rs.get_points()))
+            n = len(entries)
+            if n < 1:
+                color_print('That makes no sense dude: query results in zero entries!', 'ansired')
+                color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
+                continue
+
+            color_print(f'Found <b>{n}</b> candidates for deletion:', 'ansigreen')
+            table_print(entries)
+
+            okay = ask_confirm()
+        except InfluxDBClientError as err:
+            color_print(f'Database computer says: ' + err.content, 'ansired')
             color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
-            continue
+            entries = []
+            okay = False
 
-        color_print(f'Found <b>{n}</b> candidates for deletion:', 'ansigreen')
-        table_print(entries)
 
-        okay = ask_confirm()
-    except InfluxDBClientError as err:
-        color_print(f'Database computer says: ' + err.content, 'ansired')
-        color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
-        entries = []
-        okay = False
-
+# TODO parse args for hostname, port, user, ask pass
+run_main('homeserver')
 
 
