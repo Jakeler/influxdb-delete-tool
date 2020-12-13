@@ -47,6 +47,9 @@ def get_condition(client: InfluxDBClient, msm: str):
         completer=comp, complete_while_typing=True)
     return condition
 
+def ask_confirm():
+    answer = prompt('Do you really want to delete this? y/N')
+    return answer in ('y', 'Y', 'yes', 'Yes')
 
 def table_print(input: [dict]):
     header = input[0].keys()
@@ -59,14 +62,24 @@ dbc = InfluxDBClient('homeserver')
 select_db(dbc)
 measurement = select_msm(dbc)
 
-cond = get_condition(dbc, measurement)
+okay = False
+while not okay:
+    cond = get_condition(dbc, measurement)
 
-try:
-    rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
-    entries = (list(rs.get_points()))
-except InfluxDBClientError as err:
-    entries = []
+    try:
+        rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
+        entries = (list(rs.get_points()))
+        n = len(entries)
+        if n < 1:
+            
 
-fprint(HTML(f'Found <b>{len(entries)}</b> candidates for deletion:'))
-table_print(entries)
+        fprint(HTML(f'Found <b>{n}</b> candidates for deletion:'))
+        table_print(entries)
+
+        okay = ask_confirm()
+    except InfluxDBClientError as err:
+        entries = []
+        okay = False
+
+
 
