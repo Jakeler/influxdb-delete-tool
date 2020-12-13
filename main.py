@@ -66,7 +66,7 @@ def get_count(client: InfluxDBClient, msm: str, cond: str):
     return result[0]['count_pcs']
 
 def get_results(client: InfluxDBClient, msm: str, cond: str) -> int:
-    rs: ResultSet = client.query(f'SELECT * FROM {msm} WHERE {cond}')
+    rs: ResultSet = client.query(f'SELECT * FROM {msm} WHERE {cond}', epoch='ns')
     return list(rs.get_points())
 
 def ask_confirm():
@@ -93,7 +93,7 @@ def table_print(input: [dict]):
 def delete_entries(client: InfluxDBClient, msm: str, entries: list):
     for row in entries:
         t = row["time"]
-        rs: ResultSet = client.query(f"DELETE FROM {msm} WHERE time = '{t}'")
+        rs: ResultSet = client.query(f"DELETE FROM {msm} WHERE time = {t}")
         color_print(f'DELETED {t}', 'ansiyellow', f' result {list(rs.get_points())}')
 
 def run_main(host: str):
@@ -141,8 +141,8 @@ def run_main(host: str):
 
 # TODO parse args for hostname, port, user, ask pass
 try:
-    # run_main('homeserver')
-    run_main('172.17.0.2')
+    run_main('homeserver')
+    # run_main('172.17.0.2')
 except KeyboardInterrupt as kir:
     color_print('KeyboardInterrupt received, aborting mission!', 'ansired')
     sys.exit(0)
