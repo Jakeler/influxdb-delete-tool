@@ -8,6 +8,7 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 
+import sys
 
 def resp_list(input: dict, key = 'name'):
     return [x[key] for x in input]
@@ -101,6 +102,11 @@ def run_main(host: str):
 
 
 # TODO parse args for hostname, port, user, ask pass
-run_main('homeserver')
+try:
+    run_main('homeserver')
+except KeyboardInterrupt as kir:
+    color_print('KeyboardInterrupt received, aborting mission!', 'ansired')
+    sys.exit(0)
+
 
 
