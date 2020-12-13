@@ -1,8 +1,11 @@
 from influxdb import InfluxDBClient
 from influxdb.resultset import ResultSet
 from influxdb.exceptions import InfluxDBClientError
+INFLUX_DOC_URL = 'https://docs.influxdata.com/influxdb/v1.8/query_language/explore-data/#the-where-clause'
 
-from prompt_toolkit import prompt, print_formatted_text as fprint, HTML
+from prompt_toolkit import prompt, PromptSession, print_formatted_text as fprint, HTML
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 
 
@@ -39,7 +42,7 @@ def select_msm(client: InfluxDBClient):
         completer=comp, complete_while_typing=True)
     return msm
 
-def get_condition(client: InfluxDBClient, msm: str):
+def get_condition_session(client: InfluxDBClient, msm: str):
     # TODO mode for mutli measurements
     rs: ResultSet = dbc.query(f'SHOW TAG KEYS FROM {msm}')
     tags = resp_list(list(rs.get_points()), 'tagKey')
@@ -49,9 +52,9 @@ def get_condition(client: InfluxDBClient, msm: str):
     found_print('fields', fields)
 
     comp = WordCompleter(['time'] + tags + fields)
-    condition = prompt(HTML('Please choose a <ansicyan>condition WHERE</ansicyan> it is wrong:\n'), 
-        completer=comp, complete_while_typing=True)
-    return condition
+    session = PromptSession(HTML('Please choose a <ansicyan>condition WHERE</ansicyan> it is wrong:\n'),
+        completer=comp, complete_while_typing=True, auto_suggest=AutoSuggestFromHistory())
+    return session
 
 def ask_confirm():
     answer = prompt('Do you really want to delete this? y/N')
@@ -73,8 +76,9 @@ while not db_selected:
 measurement = select_msm(dbc)
 
 okay = False
+session = get_condition_session(dbc, measurement)
 while not okay:
-    cond = get_condition(dbc, measurement)
+    cond = session.prompt()
 
     try:
         rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
@@ -82,6 +86,7 @@ while not okay:
         n = len(entries)
         if n < 1:
             color_print('That makes no sense dude: query results in zero entries!', 'ansired')
+            color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
             continue
 
         color_print(f'Found <b>{n}</b> candidates for deletion:', 'ansigreen')
@@ -90,6 +95,7 @@ while not okay:
         okay = ask_confirm()
     except InfluxDBClientError as err:
         color_print(f'Database computer says: ' + err.content, 'ansired')
+        color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
         entries = []
         okay = False
 
