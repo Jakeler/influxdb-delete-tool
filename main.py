@@ -62,7 +62,10 @@ def table_print(input: [dict]):
 
 # TODO parse args for hostname, port, user, ask pass
 dbc = InfluxDBClient('homeserver')
-select_db(dbc)
+
+db_selected = False
+while not db_selected:
+    db_selected = select_db(dbc)
 measurement = select_msm(dbc)
 
 okay = False
