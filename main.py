@@ -9,12 +9,15 @@ from prompt_toolkit.completion import WordCompleter
 def resp_list(input: dict, key = 'name'):
     return [x[key] for x in input]
 
-def color_print(text: str, color: str):
-    fprint(HTML(f'<{color}>{text}</{color}>'))
+def color_print(text: str, color: str, extra: str = ''):
+    fprint(HTML(f'<{color}>{text}</{color}>{extra}'))
+
+def found_print(name: str, items: list):
+    color_print(f'Okay, there are some {name}: ', 'ansigreen', str(items))
 
 def select_db(client: InfluxDBClient):
     databases = resp_list(client.get_list_database())
-    fprint(databases)
+    found_print('databases', databases)
 
     comp = WordCompleter(databases)
     db = prompt(HTML('Which <ansicyan>database</ansicyan> do you want to work on today?\n'), 
@@ -29,7 +32,7 @@ def select_db(client: InfluxDBClient):
 def select_msm(client: InfluxDBClient):
     rs: ResultSet = dbc.query('SHOW measurements')
     msms = resp_list(list(rs.get_points()))
-    print(msms)
+    found_print('measurements', msms)
 
     comp = WordCompleter(msms)
     msm = prompt(HTML('And what <ansicyan>measurement</ansicyan> contains crap (you can only choose one)?\n'), 
@@ -40,10 +43,10 @@ def get_condition(client: InfluxDBClient, msm: str):
     # TODO mode for mutli measurements
     rs: ResultSet = dbc.query(f'SHOW TAG KEYS FROM {msm}')
     tags = resp_list(list(rs.get_points()), 'tagKey')
-    print(tags)
+    found_print('tags', tags)
     rs: ResultSet = dbc.query(f'SHOW FIELD KEYS FROM {msm}')
     fields = resp_list(list(rs.get_points()), 'fieldKey')
-    print(fields)
+    found_print('fields', fields)
 
     comp = WordCompleter(['time'] + tags + fields)
     condition = prompt(HTML('Please choose a <ansicyan>condition WHERE</ansicyan> it is wrong:\n'), 
@@ -59,6 +62,7 @@ def table_print(input: [dict]):
     fprint(HTML(f"<u>{'  '.join(header)}</u>"))
     for line in input:
         fprint('  '.join(str(x) for x in line.values()))
+    print()
 
 # TODO parse args for hostname, port, user, ask pass
 dbc = InfluxDBClient('homeserver')
@@ -77,10 +81,10 @@ while not okay:
         entries = (list(rs.get_points()))
         n = len(entries)
         if n < 1:
-            color_print('That makes no sense man: query results in zero entries!', 'ansired')
+            color_print('That makes no sense dude: query results in zero entries!', 'ansired')
             continue
 
-        fprint(HTML(f'Found <b>{n}</b> candidates for deletion:'))
+        color_print(f'Found <b>{n}</b> candidates for deletion:', 'ansigreen')
         table_print(entries)
 
         okay = ask_confirm()
