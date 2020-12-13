@@ -70,7 +70,7 @@ def get_results(client: InfluxDBClient, msm: str, cond: str) -> int:
     return list(rs.get_points())
 
 def ask_confirm():
-    answer = prompt('Do you really want to delete this? y/N')
+    answer = prompt('Do you really want to delete this selection? y/N ')
     return answer in ('y', 'Y', 'yes', 'Yes')
 
 def ask_large(n: int) -> bool:
@@ -89,6 +89,12 @@ def table_print(input: [dict]):
     for line in input:
         fprint('  '.join(str(x) for x in line.values()))
     print()
+
+def delete_entries(client: InfluxDBClient, msm: str, entries: list):
+    for row in entries:
+        t = row["time"]
+        rs: ResultSet = client.query(f"DELETE FROM {msm} WHERE time = '{t}'")
+        color_print(f'DELETED {t}', 'ansiyellow', f' result {list(rs.get_points())}')
 
 def run_main(host: str):
     dbc = InfluxDBClient(host)
@@ -129,6 +135,8 @@ def run_main(host: str):
             okay = False
 
     # Here we decided to do it
+    delete_entries(dbc, measurement, entries)
+    color_print('Mission accomplished!', 'ansigreen')
 
 
 # TODO parse args for hostname, port, user, ask pass
