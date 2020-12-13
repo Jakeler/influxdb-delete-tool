@@ -1,12 +1,13 @@
 from influxdb import InfluxDBClient
 from influxdb.resultset import ResultSet
+from influxdb.exceptions import InfluxDBClientError
 
 from prompt_toolkit import prompt, print_formatted_text as fprint, HTML
 from prompt_toolkit.completion import WordCompleter
 
 
-def resp_list(input: dict):
-    return [x["name"] for x in input]
+def resp_list(input: dict, key = 'name'):
+    return [x[key] for x in input]
 
 def select_db(client: InfluxDBClient):
     databases = resp_list(client.get_list_database())
@@ -28,9 +29,24 @@ def select_msm(client: InfluxDBClient):
     print(msms)
 
     comp = WordCompleter(msms)
-    msm = prompt(HTML('And what <ansicyan>measurement</ansicyan> contains crap?\n'), 
+    msm = prompt(HTML('And what <ansicyan>measurement</ansicyan> contains crap (you can only choose one)?\n'), 
         completer=comp, complete_while_typing=True)
     return msm
+
+def get_condition(client: InfluxDBClient, msm: str):
+    # TODO mode for mutli measurements
+    rs: ResultSet = dbc.query(f'SHOW TAG KEYS FROM {msm}')
+    tags = resp_list(list(rs.get_points()), 'tagKey')
+    print(tags)
+    rs: ResultSet = dbc.query(f'SHOW FIELD KEYS FROM {msm}')
+    fields = resp_list(list(rs.get_points()), 'fieldKey')
+    print(fields)
+
+    comp = WordCompleter(['time'] + tags + fields)
+    condition = prompt(HTML('Please choose a <ansicyan>condition WHERE</ansicyan> it is wrong:\n'), 
+        completer=comp, complete_while_typing=True)
+    return condition
+
 
 def table_print(input: [dict]):
     header = input[0].keys()
@@ -43,9 +59,14 @@ dbc = InfluxDBClient('homeserver')
 select_db(dbc)
 measurement = select_msm(dbc)
 
-cond = 'pcs > 100000'
-rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
-entries = (list(rs.get_points()))
+cond = get_condition(dbc, measurement)
+
+try:
+    rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
+    entries = (list(rs.get_points()))
+except InfluxDBClientError as err:
+    entries = []
 
 fprint(HTML(f'Found <b>{len(entries)}</b> candidates for deletion:'))
 table_print(entries)
+
