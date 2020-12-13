@@ -2,8 +2,10 @@ from influxdb import InfluxDBClient
 from influxdb.resultset import ResultSet
 from influxdb.exceptions import InfluxDBClientError
 INFLUX_DOC_URL = 'https://docs.influxdata.com/influxdb/v1.8/query_language/explore-data/#the-where-clause'
+LARGE_THRESHOLD = 100
 
 from prompt_toolkit import prompt, PromptSession, print_formatted_text as fprint, HTML
+from prompt_toolkit.shortcuts import button_dialog
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
@@ -57,9 +59,29 @@ def get_condition_session(client: InfluxDBClient, msm: str):
         completer=comp, complete_while_typing=True, auto_suggest=AutoSuggestFromHistory())
     return session
 
+def get_count(client: InfluxDBClient, msm: str, cond: str):
+    rs: ResultSet = client.query(f'SELECT COUNT(*) FROM {msm} WHERE {cond}')
+    result = list(rs.get_points())
+    print(result)
+    return result[0]['count_pcs']
+
+def get_results(client: InfluxDBClient, msm: str, cond: str) -> int:
+    rs: ResultSet = client.query(f'SELECT * FROM {msm} WHERE {cond}')
+    return list(rs.get_points())
+
 def ask_confirm():
     answer = prompt('Do you really want to delete this? y/N')
     return answer in ('y', 'Y', 'yes', 'Yes')
+
+def ask_large(n: int) -> bool:
+    return button_dialog(
+        title=f'High result count ({n})',
+        text=f'You are trying to get {n} points, can this be correct? It could take long to load and execute...',
+        buttons=[
+            ('YES', True),
+            ('No (edit)', False),
+        ],
+    ).run()
 
 def table_print(input: [dict]):
     header = input[0].keys()
@@ -76,15 +98,21 @@ def run_main(host: str):
         db_selected = select_db(dbc)
     measurement = select_msm(dbc)
 
+
+
     okay = False
     session = get_condition_session(dbc, measurement)
     while not okay:
         cond = session.prompt()
+        print('Query started...')
 
         try:
-            rs: ResultSet = dbc.query(f'SELECT * FROM {measurement} WHERE {cond}')
-            entries = (list(rs.get_points()))
+            entries = get_results(dbc, measurement, cond)
             n = len(entries)
+            if n > LARGE_THRESHOLD:
+                if not ask_large(n):
+                    continue
+
             if n < 1:
                 color_print('That makes no sense dude: query results in zero entries!', 'ansired')
                 color_print('RTFM: ' + INFLUX_DOC_URL, 'ansired')
@@ -100,10 +128,13 @@ def run_main(host: str):
             entries = []
             okay = False
 
+    # Here we decided to do it
+
 
 # TODO parse args for hostname, port, user, ask pass
 try:
-    run_main('homeserver')
+    # run_main('homeserver')
+    run_main('172.17.0.2')
 except KeyboardInterrupt as kir:
     color_print('KeyboardInterrupt received, aborting mission!', 'ansired')
     sys.exit(0)
