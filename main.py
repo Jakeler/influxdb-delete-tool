@@ -9,6 +9,9 @@ from prompt_toolkit.completion import WordCompleter
 def resp_list(input: dict, key = 'name'):
     return [x[key] for x in input]
 
+def color_print(text: str, color: str):
+    fprint(HTML(f'<{color}>{text}</{color}>'))
+
 def select_db(client: InfluxDBClient):
     databases = resp_list(client.get_list_database())
     fprint(databases)
@@ -17,7 +20,7 @@ def select_db(client: InfluxDBClient):
     db = prompt(HTML('Which <ansicyan>database</ansicyan> do you want to work on today?\n'), 
         completer=comp, complete_while_typing=True)
     if (db not in databases):
-        fprint(HTML(f'<ansired>DB {db} does not exist, aborting!</ansired>'))
+        color_print(f'DB {db} does not exist, retry!', 'ansired')
         return False
 
     client.switch_database(db)
@@ -71,7 +74,7 @@ while not okay:
         entries = (list(rs.get_points()))
         n = len(entries)
         if n < 1:
-            
+            color_print('Error: query results in zero entries!', 'ansired')
 
         fprint(HTML(f'Found <b>{n}</b> candidates for deletion:'))
         table_print(entries)
