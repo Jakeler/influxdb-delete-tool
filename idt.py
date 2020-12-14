@@ -10,7 +10,8 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 
-import sys
+import sys, argparse
+
 
 def resp_list(input: dict, key = 'name'):
     return [x[key] for x in input]
@@ -96,15 +97,14 @@ def delete_entries(client: InfluxDBClient, msm: str, entries: list):
         rs: ResultSet = client.query(f"DELETE FROM {msm} WHERE time = {t}")
         color_print(f'DELETED {t}', 'ansiyellow', f' result {list(rs.get_points())}')
 
-def run_main(host: str):
-    dbc = InfluxDBClient(host)
+def run_main(args: argparse.Namespace):
+    color_print(f"Connecting with paramters {vars(args)}\n", 'ansigray')
+    dbc = InfluxDBClient(**vars(args))
 
     db_selected = False
     while not db_selected:
         db_selected = select_db(dbc)
     measurement = select_msm(dbc)
-
-
 
     okay = False
     session = get_condition_session(dbc, measurement)
@@ -139,13 +139,23 @@ def run_main(host: str):
     color_print('Mission accomplished!', 'ansigreen')
 
 
-# TODO parse args for hostname, port, user, ask pass
-try:
-    run_main('homeserver')
-    # run_main('172.17.0.2')
-except KeyboardInterrupt as kir:
-    color_print('KeyboardInterrupt received, aborting mission!', 'ansired')
-    sys.exit(0)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(  
+        description='IDT: tool to delete points with bad field values in InfluxDB',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)  
+    
+    parser.add_argument('host', nargs='?', default='localhost', help='hostname of DB instance')
+    parser.add_argument('-p', '--port', required=False, default=8086, help='port of DB instance')
+    parser.add_argument('-u', '--username', required=False, help='username with suitable rights')
+    parser.add_argument('-x', '--password', required=False, help='password for user authentication')
+    parser.add_argument('-s', '--ssl', required=False, action='store_true', help='use HTTPS instead of plain HTTP')
+    args = parser.parse_args()
+
+    try:
+        run_main(args)
+    except KeyboardInterrupt as kir:
+        color_print('KeyboardInterrupt received, aborting mission!', 'ansired')
+        sys.exit(0)
 
 
 
