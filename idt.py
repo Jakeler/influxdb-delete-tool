@@ -8,7 +8,7 @@ from prompt_toolkit import prompt, PromptSession, print_formatted_text as fprint
 from prompt_toolkit.shortcuts import button_dialog
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import FuzzyWordCompleter
 
 import sys, argparse
 
@@ -26,7 +26,7 @@ def select_db(client: InfluxDBClient):
     databases = resp_list(client.get_list_database())
     found_print('databases', databases)
 
-    comp = WordCompleter(databases)
+    comp = FuzzyWordCompleter(databases)
     db = prompt(HTML('Which <ansicyan>database</ansicyan> do you want to work on today?\n'), 
         completer=comp, complete_while_typing=True)
     if (db not in databases):
@@ -41,7 +41,7 @@ def select_msm(client: InfluxDBClient):
     msms = resp_list(list(rs.get_points()))
     found_print('measurements', msms)
 
-    comp = WordCompleter(msms)
+    comp = FuzzyWordCompleter(msms)
     msm = prompt(HTML('And what <ansicyan>measurement</ansicyan> contains crap (you can only choose one)?\n'), 
         completer=comp, complete_while_typing=True)
     return msm
@@ -55,7 +55,7 @@ def get_condition_session(client: InfluxDBClient, msm: str):
     fields = resp_list(list(rs.get_points()), 'fieldKey')
     found_print('fields', fields)
 
-    comp = WordCompleter(['time'] + tags + fields)
+    comp = FuzzyWordCompleter(['time'] + tags + fields)
     session = PromptSession(HTML('Please choose a <ansicyan>condition WHERE</ansicyan> it is wrong:\n'),
         completer=comp, complete_while_typing=True, auto_suggest=AutoSuggestFromHistory())
     return session
